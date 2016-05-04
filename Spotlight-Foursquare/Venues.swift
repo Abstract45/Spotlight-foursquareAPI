@@ -20,27 +20,31 @@ import SwiftyJSON
  https://developer.foursquare.com/docs/venues/explore
  */
 
-struct Venues {
+struct Venues: CustomStringConvertible {
     private var _id: String! //id of the business can be used to get data by business
     private var _likes:String!
     private var _name:String! // gives the place name no need to format
-    private var _photoURL:NSURL! // gives photo with ability to get different sizes - some can have featured photos
+    private var _featuredPhotoURL:NSURL! // gives featured photo with ability to get different sizes - some can have featured photos
+    private var _photoURL:NSURL!
     private var _address:String! // can get formatted address
     private var _phoneNumber:String! // can get formatted phone number
-    private var _lat: Double! // given as Double or float
-    private var _long: Double! // given as Double or float
-    private var _rating: Double! // based of a 10 rating system - gives a float value
-    private var _usersCount:String!
-    private var _websiteString:String!
+    private var _coordinates: (lat:Double,long:Double)
+    private var _rating: String! // based of a 10 rating system - gives a decimal value
+    private var _ratingCount:String! //
+    private var _websiteString:String! // website link for venue
     private var _placeComment:String! // add messagers name to it
-    private var _reviewerName:String!
-    private var _price:String! // not always available - gives you dollar signs
+    private var _reviewerName:String! // name of reviewer
     private var _priceMessage:String! // not always availale - tells you if it is cheap etc.
     private var _status:String! // gives 0 or 1 depending on open or not, sometimes gives false or true instead of 0 or 1
     private var _statusMessage:String! // tells you when it is going to be open next
     private var _category:String! // gives category such as Breakfast spot - watch out for uniscalars
-    private var _menuLink:String! // not always available
-    private var _distance: String! //distance in meters
+    private var _menuURLString:String! // not always available
+    private var _distance: Double! //distance in meters
+    private var _fSqURLString:String! // link back to foursquare website
+    private var _hereNowCount:Int! // how many people are currently there
+    private var _facebookId:String! // can be used later on to link to facebook page
+    private var _currency:String! // currency used at establishment
+    private var _checkInsCount:String! // gives you the number of checkins count
 
     var placeId:String {
         return _id
@@ -58,13 +62,10 @@ struct Venues {
         return _phoneNumber
     }
     var coordinates: (lat:Double,long:Double) {
-        return (_lat,_long)
+        return (_coordinates)
     }
-    var rating:Double {
+    var rating:String {
         return _rating
-    }
-    var price:String {
-        return _price
     }
     var priceMessage:String {
         return _priceMessage
@@ -72,10 +73,10 @@ struct Venues {
     var category:String {
         return _category
     }
-    var menuLink: String {
-        return _menuLink
+    var menuURLString: String {
+        return _menuURLString
     }
-    var distance:String {
+    var distanceMeters:Double {
         return _distance
     }
     var status:String {
@@ -93,17 +94,93 @@ struct Venues {
     var photoURL:NSURL {
         return _photoURL
     }
-    var userCount:String {
-        return _usersCount
+    var ratingCount:String {
+        return _ratingCount
     }
     var websiteURLString:String {
         return _websiteString
     }
-    
-    init(json:JSON) {
-        
+    var fSqURLString:String {
+        return _fSqURLString
+    }
+    var hereNowCount:Int {
+        return _hereNowCount
+    }
+    var facebookId:String {
+        return _facebookId
+    }
+    var currency:String {
+        return _currency
+    }
+    var featuredPhotoURL:NSURL {
+        return _featuredPhotoURL
+    }
+    var checkInsCount:String {
+        return _checkInsCount
     }
     
+    // not venue description, rather used
+    var description: String {
+        return "Name:\(name), placeId: \(placeId), likes: \(likes), Address: \(placeAddress), phoneNumber: \(phoneNumber), coordinates: \(coordinates), rating: \(rating), currency:\(currency), priceMessage: \(priceMessage), category: \(category), menuUrlString: \(menuURLString), distance: \(distanceMeters), status: \(status), statusMessage: \(statusMessage), reviewerName: \(reviewerName), review: \(reviewMessage), photoURL \(photoURL), ratingCount: \(ratingCount), websiteURLString: \(websiteURLString), fsqURLString: \(fSqURLString), hereNowCount: \(hereNowCount), facebookId: \(facebookId), currency: \(currency), featuredPhotoURL: \(featuredPhotoURL), checkInsCount: \(checkInsCount)"
+    }
+    init(json:JSON) {
+        let location = json["venue"]["location"]
+        let tips = json["tips"][0]
+        let venue = json["venue"]
+        let featuredPhotoItems = venue["featuredPhotos"]["items"][0]
+        let photoItems = venue["photos"]["groups"][0]["items"][0]
+        let price = venue["price"]["tier"].intValue
+        
+        //Location related json
+        
+        if let address = location["formattedAddress"].arrayObject as? [String] {
+            self._address = address.joinWithSeparator(",")
+        }
+        self._coordinates = (location["lat"].doubleValue,location["lng"].doubleValue)
+        self._distance = location["distance"].doubleValue
+        
+        //tips related json
+        self._likes = tips["likes"]["count"].stringValue
+        self._reviewerName = tips["user"]["firstName"].stringValue
+        self._placeComment = tips["text"].stringValue
+        self._fSqURLString = tips["canonicalUrl"].stringValue
+        
+        
+        //venue related json
+        self._id = venue["id"].stringValue
+        self._name = venue["name"].stringValue
+        self._category = venue["categories"][0]["name"].stringValue
+        self._featuredPhotoURL = checkURL(featuredPhotoItems["prefix"].stringValue + "500X500" + featuredPhotoItems["suffix"].stringValue)
+        self._hereNowCount = venue["hereNow"]["count"].intValue
+        self._statusMessage = venue["hours"]["status"].stringValue
+        self._status = venue["hours"]["isOpen"].intValue > 0 ? "Open": "Closed"
+        self._phoneNumber = venue["contact"]["formattedPhone"].stringValue
+        self._facebookId = venue["contact"]["facebook"].stringValue
+        self._currency = venue["price"]["currency"].stringValue
+        
+        self._priceMessage = self.getPriceType(price)
+        self._photoURL = checkURL(photoItems["prefix"].stringValue + "500x500" + photoItems["suffix"].stringValue)
+        self._rating = venue["rating"].stringValue
+        self._ratingCount = venue["ratingSignals"].stringValue
+        self._websiteString = venue["url"].stringValue
+        self._menuURLString = venue["menu"]["url"].stringValue
+        self._checkInsCount = venue["stats"]["checkinsCount"].stringValue
+    }
+    
+    private func getPriceType(priceMessage:Int) -> String {
+        switch priceMessage {
+        case 1:
+            return "$"
+        case 2:
+            return "$$"
+        case 3:
+            return "$$$"
+        case 4:
+            return "$$$$"
+        default:
+            return ""
+        }
+    }
     
 
 

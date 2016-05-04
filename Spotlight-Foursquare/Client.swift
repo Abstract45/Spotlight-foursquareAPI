@@ -27,46 +27,53 @@ class Client {
     static let instance = Client()
     private init () {}
     func searchWithTerm(term:String,ll:(lat:Double, long:Double), offset:Int, open:OpenType,completion:FSqData) -> () {
-        let url = NSURL(string: "\(URL_BASE)\(URL_EXPLORE)ll=\(ll.lat),\(ll.long)&venuePhotos=1&client_id=\(CLIENT_ID)&client_secret=\(CLIENT_SECRET)&limit=50&open=\(open.rawValue)&query=\(term)&offset=\(offset)&v=\(API_VERSION)")
-        let session = NSURLSession.sharedSession()
         
-        session.dataTaskWithURL(url!) { (data, response, error) in
-            
-            
-            if error == nil {
-                do {
-                    let dict = try NSJSONSerialization.JSONObjectWithData(data!, options: .AllowFragments) as? NSDictionary
-                    print(dict)
-                } catch let err as NSError {
-                    print(err.debugDescription)
-                }
-            } else {
-                print(error)
-            }
-            }.resume()
-    }
-    func searchWithCategory(category:[String],ll:(lat:Double,long:Double), offset:Int, open:OpenType,completion:FSqData) -> () {
-        let sections = category.joinWithSeparator(",")
-        let url = NSURL(string: "\(URL_BASE)\(URL_EXPLORE)ll=\(ll.lat),\(ll.long)&venuePhotos=1&client_id=\(CLIENT_ID)&client_secret=\(CLIENT_SECRET)&section=\(sections)&limit=50&open=\(open.rawValue)&offset=\(offset)&v=\(API_VERSION)")
+        let urlString = "\(URL_BASE)\(URL_EXPLORE)ll=\(ll.lat),\(ll.long)&venuePhotos=1&client_id=\(CLIENT_ID)&client_secret=\(CLIENT_SECRET)&limit=50&open=\(open.rawValue)&query=\(term)&offset=\(offset)&v=\(API_VERSION)"
         
-        let session = NSURLSession.sharedSession()
-        guard let sessionURL = url else {
-            print("is nil")
-            return
+        getDataWithSession(urlString) { (venues) in
+            completion(venues)
         }
-        session.dataTaskWithURL(sessionURL) { (data, response, error) in
-            
-            
-            if error == nil {
-                do {
-                    let dict = try NSJSONSerialization.JSONObjectWithData(data!, options: .AllowFragments) as? NSDictionary
-                    print(dict)
-                } catch let err as NSError {
-                    print(err.debugDescription)
-                }
-            } else {
-                print(error)
-            }
-            }.resume()
     }
+    
+    func searchWithCategory(category:[String],ll:(lat:Double,long:Double), offset:Int, open:OpenType, completion: FSqData) -> ()  {
+        let sections = category.joinWithSeparator(",")
+        let urlString = "\(URL_BASE)\(URL_EXPLORE)ll=\(ll.lat),\(ll.long)&venuePhotos=1&client_id=\(CLIENT_ID)&client_secret=\(CLIENT_SECRET)&section=\(sections)&limit=50&open=\(open.rawValue)&offset=\(offset)&v=\(API_VERSION)"
+        
+        
+        getDataWithSession(urlString, completion: { (venues) in
+            completion(venues)
+        })
+        
+    }
+    
+    private func getVenuesWithJSON(data:NSData?) -> [Venues] {
+        if  let metaData = data {
+            
+            let jsonData = JSON(data: metaData)
+            var venueArray = [Venues]()
+            for data in jsonData["response"]["groups"][0]["items"] {
+                
+                let venue = Venues(json: data.1)
+                venueArray.append(venue)
+            }
+            return venueArray
+        } else {
+            return [Venues]()
+        }
+    }
+    
+    private func getDataWithSession(urlString:String,completion:FSqData) -> () {
+        if let url = checkURL(urlString) {
+            let session = NSURLSession.sharedSession()
+            session.dataTaskWithURL(url) { (data, response, error) in
+                if error == nil {
+                    let venues = self.getVenuesWithJSON(data)
+                    completion(venues)
+                } else {
+                    print(error)
+                }
+                }.resume()
+        }
+    }
+    
 }

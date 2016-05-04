@@ -16,12 +16,17 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+       
 //        fSqClient.searchWithTerm("parks", ll: (43.6532,-79.3832), offset: 0, open: .All) { (venues) in
 //        }
         
-//        fSqClient.searchWithCategory(category, ll: (43.6532,-79.3832), offset: 0, open: .All) { (venues) in
-//        }
+        fSqClient.searchWithCategory(category, ll: (43.6532,-79.3832), offset: 0, open: .All) { (venues) in
+            for venue in venues {
+                
+               print(venue.description)
+            }
+            
+        }
     }
 }
 

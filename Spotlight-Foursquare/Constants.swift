@@ -20,3 +20,11 @@ enum OpenType:Int {
     case All = 0
     case OpenOnly
 }
+
+func checkURL(urlString:String) -> NSURL? {
+    guard let url = NSURL(string: urlString) else {
+        return NSURL(string: "")
+    }
+    return url
+}
+
